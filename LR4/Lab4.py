@@ -64,6 +64,7 @@ i = 0
 
 
 def task(path, standard_deviation, kernel_size, bound_path):
+    global i
     i += 1
     # 1
     img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
