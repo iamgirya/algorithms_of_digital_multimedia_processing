@@ -89,25 +89,25 @@ def task6():
 
         vertical_line_width = 60
         vertical_line_height = 300
-        cv2.polylines(cross_image, np.array([[25, 70], [25, 160],
-                                            [110, 200], [200, 160],
-                                            [200, 70], [110, 20]], True,
-                                            np.int32).reshape((-1, 1, 2)), (0, 0, 255), 2)
-        cv2.rectangle(cross_image,
-                      (width // 2 - vertical_line_width // 2,
-                       height // 2 - vertical_line_height // 2),
-                      (width // 2 + vertical_line_width // 2,
-                       height // 2 + vertical_line_height // 2),
-                      (0, 0, 255), 2)
+
+        center_x, center_y = width//2, height//2
+        radius = 120
+        pentagon_points = []
+        for i in range(5):
+            x = center_x + int(radius * np.cos(2 * np.pi * i / 5))
+            y = center_y + int(radius * np.sin(2 * np.pi * i / 5))
+            pentagon_points.append((x, y))
+
+        # Рисуем пентаграмму на изображении
+        for i in range(5):
+            cv2.line(cross_image, pentagon_points[i], pentagon_points[(
+                i + 2) % 5], (0, 0, 255), 2)
+
+        cv2.circle(cross_image, (center_x, center_y), 120,
+                   (0, 0, 255), 2)  # -1 для заполнения круга цветом
 
         horizontal_line_width = 250
         horizontal_line_height = 55
-        cv2.rectangle(cross_image,
-                      (width // 2 - horizontal_line_width // 2,
-                       height // 2 - horizontal_line_height // 2),
-                      (width // 2 + horizontal_line_width // 2,
-                       height // 2 + horizontal_line_height // 2),
-                      (0, 0, 255), 2)
 
         result_frame = cv2.addWeighted(frame, 1, cross_image, 0.5, 0)
 
