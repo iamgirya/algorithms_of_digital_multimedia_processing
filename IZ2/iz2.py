@@ -66,12 +66,12 @@ def get_angle_number(x, y):
 
 
 def canny(kernel_size, standard_deviation, bound_path, operator_mode, path):
-    file_name = 'img_' + path + '_ks_' + str(kernel_size) + '_sd_' + str(
+    file_name = 'canny_img_' + path + '_ks_' + str(kernel_size) + '_sd_' + str(
         standard_deviation) + '_bp_' + str(bound_path) + '_om_' + str(operator_mode) + '.jpg'
     print('Start ' + file_name)
 
     # make gray img
-    frame = cv2.imread(r'.\IZ1\imgs\\' + path, cv2.IMREAD_GRAYSCALE)
+    frame = cv2.imread(r'.\IZ2\imgs\\' + path, cv2.IMREAD_GRAYSCALE)
 
     # blur
     img = cv2.GaussianBlur(
@@ -113,6 +113,9 @@ def canny(kernel_size, standard_deviation, bound_path, operator_mode, path):
         img_G = []
         for gn in G:
             img_G.append(svertka(img, gn))
+    else:
+        print('Error operator mode')
+        return
 
     matr_gradient = np.zeros(img.shape)
     matr_angles = np.zeros(img.shape)
@@ -201,10 +204,33 @@ def canny(kernel_size, standard_deviation, bound_path, operator_mode, path):
                     img_border_filtered[i][j] = 255
 
     isCompleted = cv2.imwrite(
-        r'.\IZ1\output\\' + file_name, img_border_filtered)
+        r'.\IZ2\output\\' + file_name, img_border_filtered)
     if isCompleted:
         print('Complete ' + file_name)
 
+
+def laplacian_of_gaussian(kernel_size, standard_deviation, path):
+    # file_name = 'LoG_img_' + path + '_ks_' + str(kernel_size) + '_sd_' + str(
+    #     standard_deviation) + '_bp_' + str(bound_path) + '_om_' + str(operator_mode) + '.jpg'
+    # print('Start ' + file_name)
+
+    # make gray img
+    frame = cv2.imread(r'.\IZ2\imgs\\' + path, cv2.IMREAD_GRAYSCALE)
+
+    # blur
+    img = cv2.GaussianBlur(
+        frame, (kernel_size, kernel_size), standard_deviation)
+
+    laplacian = cv2.Laplacian(img, cv2.CV_64F)
+
+    thresh = cv2.threshold(
+        laplacian, 3, 255, cv2.THRESH_BINARY)[1]
+    cv2.imshow("Output Image", thresh)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+
+laplacian_of_gaussian(3, 1.4, 'test.jpg')
 
 kernel_sizes = [3, 7, 11]
 standard_deviations = [1.4]
