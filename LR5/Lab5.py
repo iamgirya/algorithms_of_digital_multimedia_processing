@@ -9,7 +9,7 @@ def task(kernel_size, standard_deviation, delta_tresh, min_area):
     i += 1
 
     # захват видео
-    video = cv2.VideoCapture(r'.\LR5\video1.mp4', cv2.CAP_ANY)
+    video = cv2.VideoCapture(r'.\LR5\video1.mov', cv2.CAP_ANY)
 
     # подготавливаем первый кадр
     ret, frame = video.read()
@@ -46,6 +46,7 @@ def task(kernel_size, standard_deviation, delta_tresh, min_area):
             if area < min_area:
                 continue
             video_writer.write(frame)
+            break
     video_writer.release()
 
 
