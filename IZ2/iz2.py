@@ -65,9 +65,9 @@ def get_angle_number(x, y):
                 return 4
 
 
-def canny(kernel_size, standard_deviation, bound_path, operator_mode, path):
+def canny(kernel_size, standard_deviation, bound_part, operator_mode, path):
     file_name = 'canny_img_' + path + '_ks_' + str(kernel_size) + '_sd_' + str(
-        standard_deviation) + '_bp_' + str(bound_path) + '_om_' + str(operator_mode) + '.jpg'
+        standard_deviation) + '_bp_' + str(bound_part) + '_om_' + str(operator_mode) + '.jpg'
     print('Start ' + file_name)
 
     # make gray img
@@ -182,8 +182,8 @@ def canny(kernel_size, standard_deviation, bound_path, operator_mode, path):
                 img_border_not_filtered[i][j] = 255 if is_max else 0
 
     # подавляем немаксимумы
-    lower_bound = max_gradient/bound_path
-    upper_bound = max_gradient - max_gradient/bound_path
+    lower_bound = max_gradient/bound_part
+    upper_bound = max_gradient - max_gradient/bound_part
     img_border_filtered = np.zeros(img.shape)
     for i in range(img.shape[0]):
         for j in range(img.shape[1]):
@@ -209,10 +209,10 @@ def canny(kernel_size, standard_deviation, bound_path, operator_mode, path):
         print('Complete ' + file_name)
 
 
-def laplacian_of_gaussian(kernel_size, standard_deviation, path):
-    # file_name = 'LoG_img_' + path + '_ks_' + str(kernel_size) + '_sd_' + str(
-    #     standard_deviation) + '_bp_' + str(bound_path) + '_om_' + str(operator_mode) + '.jpg'
-    # print('Start ' + file_name)
+def laplacian_of_gaussian(kernel_size, standard_deviation, bound, path):
+    file_name = 'LoG_img_' + path + '_ks_' + str(kernel_size) + '_sd_' + str(
+        standard_deviation) + '_bp_' + str(bound) + '.jpg'
+    print('Start ' + file_name)
 
     # make gray img
     frame = cv2.imread(r'.\IZ2\imgs\\' + path, cv2.IMREAD_GRAYSCALE)
@@ -221,26 +221,37 @@ def laplacian_of_gaussian(kernel_size, standard_deviation, path):
     img = cv2.GaussianBlur(
         frame, (kernel_size, kernel_size), standard_deviation)
 
-    laplacian = cv2.Laplacian(img, cv2.CV_64F)
+    # use laplas filter
+    laplas_filter = [[1,  1,  1],
+                     [1,  -8, 1],
+                     [1, 1, 1]]
+    laplacian_img = svertka(img, laplas_filter)
 
     thresh = cv2.threshold(
-        laplacian, 3, 255, cv2.THRESH_BINARY)[1]
-    cv2.imshow("Output Image", thresh)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+        laplacian_img, bound, 255, cv2.THRESH_BINARY)[1]
 
+    isCompleted = cv2.imwrite(
+        r'.\IZ2\output\\' + file_name, thresh)
+    if isCompleted:
+        print('Complete ' + file_name)
 
-laplacian_of_gaussian(3, 1.4, 'test.jpg')
 
 kernel_sizes = [3, 7, 11]
 standard_deviations = [1.4]
-bound_paths = [10, 7, 4]
+bound_parts = [10, 7, 4]
+bounds = [2, 4, 7]
 operators = ['kirsch', 'roberts',  'sobel']
 imgs = ['test.jpg']
 
 for k in kernel_sizes:
     for s in standard_deviations:
-        for b in bound_paths:
+        for b in bounds:
+            for i in imgs:
+                laplacian_of_gaussian(k, s, b, i)
+
+for k in kernel_sizes:
+    for s in standard_deviations:
+        for b in bound_parts:
             for o in operators:
                 for i in imgs:
                     canny(k, s, b, o, i)
