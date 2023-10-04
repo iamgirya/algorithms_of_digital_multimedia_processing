@@ -6,20 +6,25 @@ def svertka(img, kernel):
     kernel_size = len(kernel)
     x_start = kernel_size // 2
     y_start = kernel_size // 2
+    x_end = (kernel_size-1) // 2
+    y_end = (kernel_size-1) // 2
     matr = np.zeros(img.shape)
     for i in range(img.shape[0]):
         for j in range(img.shape[1]):
             matr[i][j] = img[i][j]
 
-    for i in range(x_start, len(matr)-x_start):
-        for j in range(y_start, len(matr[i])-y_start):
+    for i in range(x_start, len(matr)-x_end):
+        for j in range(y_start, len(matr[i])-y_end):
 
             # операция свёртки
             val = 0
-            for k in range(-(kernel_size//2), kernel_size//2+1):
-                for l in range(-(kernel_size//2), kernel_size//2+1):
-                    val += img[i + k][j + l] * kernel[k +
-                                                      (kernel_size//2)][l + (kernel_size//2)]
+            for k in range(-(kernel_size//2), (kernel_size+1)//2):
+                for l in range(-(kernel_size//2), (kernel_size+1)//2):
+                    ind1 = i + k
+                    ind2 = j + l
+                    img_val = img[ind1][ind2]
+                    val += img_val * kernel[k +
+                                            (kernel_size//2)][l + (kernel_size//2)]
             matr[i][j] = val
 
     return matr
@@ -63,6 +68,7 @@ def get_angle_number(x, y):
 def canny(kernel_size, standard_deviation, bound_path, operator_mode, path):
     file_name = 'img_' + path + '_ks_' + str(kernel_size) + '_sd_' + str(
         standard_deviation) + '_bp_' + str(bound_path) + '_om_' + str(operator_mode) + '.jpg'
+    print(file_name)
 
     # make gray img
     frame = cv2.imread(r'.\IZ1\imgs\\' + path, cv2.IMREAD_GRAYSCALE)
@@ -109,7 +115,8 @@ def canny(kernel_size, standard_deviation, bound_path, operator_mode, path):
             img_G.append(svertka(img, gn))
 
     matr_gradient = np.zeros(img.shape)
-    # считаем градиент
+    matr_angles = np.zeros(img.shape)
+    # считаем градиент и угл
     if (operator_mode == 'sobel' or operator_mode == 'roberts'):
         img_Gx = svertka(img, Gx)
         img_Gy = svertka(img, Gy)
@@ -120,22 +127,27 @@ def canny(kernel_size, standard_deviation, bound_path, operator_mode, path):
                     img_Gx[i][j] ** 2 + img_Gy[i][j] ** 2)
                 if (matr_gradient[i][j] > max_gradient):
                     max_gradient = matr_gradient[i][j]
+
+        for i in range(img.shape[0]):
+            for j in range(img.shape[1]):
+                matr_angles[i][j] = get_angle_number(
+                    img_Gx[i][j], img_Gy[i][j])
     else:
         max_gradient = 0
         for i in range(img.shape[0]):
             for j in range(img.shape[1]):
-                gn_values = []
-                for n in range(len(img_G)):
-                    gn_values.append(img_G[n][i][j])
-                matr_gradient[i][j] = np.max(gn_values)
+
+                maxInd = 0
+                maxVal = img_G[0][i][j]
+                for angle in range(1, 8):
+                    if maxVal < img_G[angle][i][j]:
+                        maxInd = angle
+                        maxVal = img_G[angle][i][j]
+
+                matr_gradient[i][j] = maxVal
+                matr_angles[i][j] = maxInd
                 if (matr_gradient[i][j] > max_gradient):
                     max_gradient = matr_gradient[i][j]
-
-    # считаем углы
-    matr_angles = np.zeros(img.shape)
-    for i in range(img.shape[0]):
-        for j in range(img.shape[1]):
-            matr_angles[i][j] = get_angle_number(img_Gx[i][j], img_Gy[i][j])
 
     # бордеры без фильтров
     img_border_not_filtered = img.copy()
@@ -194,7 +206,7 @@ def canny(kernel_size, standard_deviation, bound_path, operator_mode, path):
 kernel_sizes = [3, 7, 11]
 standard_deviations = [1.4]
 bound_paths = [10, 7, 4]
-operators = ['sobel', 'roberts', 'kirsch']
+operators = ['kirsch', 'roberts',  'sobel']
 imgs = ['test.jpg']
 
 for k in kernel_sizes:
