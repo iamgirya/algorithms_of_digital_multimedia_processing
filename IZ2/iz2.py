@@ -68,7 +68,7 @@ def get_angle_number(x, y):
 def canny(kernel_size, standard_deviation, bound_path, operator_mode, path):
     file_name = 'img_' + path + '_ks_' + str(kernel_size) + '_sd_' + str(
         standard_deviation) + '_bp_' + str(bound_path) + '_om_' + str(operator_mode) + '.jpg'
-    print(file_name)
+    print('Start ' + file_name)
 
     # make gray img
     frame = cv2.imread(r'.\IZ1\imgs\\' + path, cv2.IMREAD_GRAYSCALE)
@@ -200,7 +200,10 @@ def canny(kernel_size, standard_deviation, bound_path, operator_mode, path):
                 elif (gradient > upper_bound):
                     img_border_filtered[i][j] = 255
 
-    cv2.imwrite(r'.\IZ1\output\\' + file_name, img_border_filtered)
+    isCompleted = cv2.imwrite(
+        r'.\IZ1\output\\' + file_name, img_border_filtered)
+    if isCompleted:
+        print('Complete ' + file_name)
 
 
 kernel_sizes = [3, 7, 11]
