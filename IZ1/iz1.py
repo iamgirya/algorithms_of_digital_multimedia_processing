@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 
-def iz_part1(file, tracker_type):
+def iz_part1(file, tracker_type, bbox):
     if tracker_type == 'MIL':
         tracker = cv2.TrackerMIL().create()  # norm-sbit
     if tracker_type == 'KCF':
@@ -47,13 +47,8 @@ def iz_part1(file, tracker_type):
         print("Cannot read video")
         return
 
-    # Define an initial bounding box
-    bbox = (250, 153, 156, 198)
+    # bbox = cv2.selectROI(frame, False)
 
-    # Uncomment the line below to select a different bounding box
-    bbox = cv2.selectROI(frame, False)
-
-    # Initialize tracker with first frame and bounding box
     ok = tracker.init(frame, bbox)
 
     while True:
@@ -101,11 +96,16 @@ def iz_part1(file, tracker_type):
     writer.release()
 
 
-class MeanShiftTracker(object):
+class CAMShiftTracker(object):
+
     def __init__(self, curWindowRoi, imgBGR):
+        '''
+        curWindow =[x,y, w,h] // initialize the window to be tracked by the tracker 
+        '''
         self.updateCurrentWindow(curWindowRoi)
         self.updateHistograms(imgBGR)
 
+        # set up the termination criteria for meanshift, either 10 iterations or move by at least 1 pt
         self.term_criteria = (cv2.TERM_CRITERIA_EPS |
                               cv2.TERM_CRITERIA_COUNT, 10, 1)
 
@@ -152,14 +152,19 @@ class MeanShiftTracker(object):
 
     def computeNewWindow(self, imgBGR):
         '''
-            Track the window enclosing the object of interest using meanShift function of openCV for the 
+            Track the window enclosing the object of interest using CAMShift function of openCV for the 
             current frame imgBGR
         '''
 
         self.getBackProjectedImage(imgBGR)
 
-        _, curWindow = cv2.meanShift(
+        self.rotatedWindow, curWindow = cv2.CamShift(
             self.backProjectedImg, self.curWindow, self.term_criteria)
+
+        # get the rotated windo vertices
+
+        self.rotatedWindow = cv2.boxPoints(self.rotatedWindow)
+        self.rotatedWindow = np.int0(self.rotatedWindow)
 
         self.updateCurrentWindow(curWindow)
 
@@ -167,62 +172,68 @@ class MeanShiftTracker(object):
 
         return self.curWindow
 
+    def getRotatedWindow(self):
 
-def iz_part2():
-    cap = cv2.VideoCapture(r"IZ1\imgs\video1.mp4")
+        return self.rotatedWindow
+
+
+def iz_part2(file, bbox):
+    cap = cv2.VideoCapture(r"IZ1\imgs\\"+file)
 
     w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    writer = cv2.VideoWriter(r"IZ1\output\video2_" +
+    writer = cv2.VideoWriter(r"IZ1\output\video2_" + file +
                              "MeanShift.mp4", fourcc, 90, (w, h))
-    ret, frame = cap.read()
-    x, y, w, h = cv2.selectROI(frame, False)
-    track_window = (x, y, w, h)
-    roi = frame[y:y+h, x:x+w]
-    hsv_roi = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
-    mask = cv2.inRange(hsv_roi, np.array((0., 60., 32.)),
-                       np.array((180., 255., 255.)))
-    roi_hist = cv2.calcHist([hsv_roi], [0], mask, [180], [0, 180])
-    cv2.normalize(roi_hist, roi_hist, 0, 255, cv2.NORM_MINMAX)
-    term_crit = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 1)
-    while (True):
+
+    ok, frame = cap.read()
+    
+    bbox = cv2.selectROI(frame, False)
+    camShifTracker = CAMShiftTracker(bbox, frame)
+    while True:
+        ok, frame = cap.read()
+        if not ok:
+            break
+
         timer = cv2.getTickCount()
-        ret, frame = cap.read()
-        if ret == True:
-            hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-            dst = cv2.calcBackProject([hsv], [0], roi_hist, [0, 180], 1)
-            ret, track_window = cv2.meanShift(dst, track_window, term_crit)
+        camShifTracker.computeNewWindow(frame)
+        fps = cv2.getTickFrequency() / (cv2.getTickCount() - timer)
 
-            fps = cv2.getTickFrequency() / (cv2.getTickCount() - timer)
-            x, y, w, h = track_window
-            img2 = cv2.rectangle(frame, (x, y), (x+w, y+h), 255, 2)
+        x, y, w, h = camShifTracker.getCurWindow()
 
-            cv2.putText(frame, "MeanShift Tracker", (100, 20),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
+        # display the current window
+        cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2, cv2.LINE_AA)
 
-            # Display FPS on frame
-            cv2.putText(frame, "FPS : " + str(int(fps)), (100, 50),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
+        rotatedWindow = camShifTracker.getRotatedWindow()
+        # display rotated window
+        cv2.polylines(frame, [rotatedWindow], True,
+                      (0, 255, 0), 2, cv2.LINE_AA)
 
-            cv2.imshow('img2', img2)
-            writer.write(img2)
+        cv2.putText(frame, "FPS : " + str(int(fps)), (100, 50),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
 
-            k = cv2.waitKey(1) & 0xff
-            if k == 27:
-                break
-        else:
+        # show the frame and update the FPS counter
+        cv2.imshow("CAMShift Face Tracking", frame)
+        writer.write(frame)
+
+        k = cv2.waitKey(1) & 0xff
+        if k == 27:
             break
     writer.release()
-    cv2.destroyAllWindows()
 
 
 # TODO видосы добавить
 tracker_types = ['KCF', 'CSRT', 'DASIAMRPN']
-files = ['video1.mp4', '2.mov', '3.mov', '4.mov', '5.mov']
-for tracker_type in tracker_types:
-    for file in files:
-        iz_part1(file, tracker_type)
+files = ['video1.mp4', '2.mov', '3.mov', '4.mov', '5.mp4']  #
+bboxs = [(250, 123, 156, 218), (587, 338, 352, 502), (416, 168,
+                                                      268, 355), (495, 203, 241, 327), (329, 112, 133, 199)]
 
 
-# iz_part2()
+# for tracker_type in tracker_types:
+#     for file in files:
+#         bbox = bboxs[files.index(file)]
+#         iz_part1(file, tracker_type, bbox)
+
+for file in files:
+    bbox = bboxs[files.index(file)]
+    iz_part2(file, bbox)
