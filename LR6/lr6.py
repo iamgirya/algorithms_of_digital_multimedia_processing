@@ -5,7 +5,7 @@ import win32gui
 from PIL import ImageGrab, Image
 import numpy as np
 
-model = load_model('mnist.h5')
+model = load_model('svertka.keras')
 
 
 def predict_digit(img):
