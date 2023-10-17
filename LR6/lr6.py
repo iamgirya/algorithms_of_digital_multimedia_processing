@@ -5,7 +5,7 @@ import win32gui
 from PIL import ImageGrab, Image
 import numpy as np
 
-model = load_model('svertka.keras')
+model = load_model('perseptrone35.keras')
 
 
 def predict_digit(img):
@@ -16,7 +16,7 @@ def predict_digit(img):
     img = np.array(img)
     # изменение размерности для поддержки модели ввода и нормализации
     img = img.reshape(1, 28, 28, 1)
-    img = img/255.0
+    img = img/255
     # предстказание цифры
     res = model.predict([img])[0]
     return np.argmax(res), max(res)
