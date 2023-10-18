@@ -1,69 +1,71 @@
-from keras.models import load_model
-from tkinter import *
-import tkinter as tk
-import win32gui
-from PIL import ImageGrab, Image
+from scipy.ndimage.measurements import center_of_mass
+import math 
+import cv2
 import numpy as np
+from keras.models import load_model
 
-model = load_model('perseptrone35.keras')
+model = load_model('mnist.h5')
 
+def getBestShift(img):
+    cy,cx = center_of_mass(img)
+    
+    rows,cols = img.shape
+    shiftx = np.round(cols/2.0-cx).astype(int)
+    shifty = np.round(rows/2.0-cy).astype(int)
 
-def predict_digit(img):
-    # изменение рзмера изобржений на 28x28
-    img = img.resize((28, 28))
-    # конвертируем rgb в grayscale
-    img = img.convert('L')
-    img = np.array(img)
-    # изменение размерности для поддержки модели ввода и нормализации
-    img = img.reshape(1, 28, 28, 1)
-    img = img/255
-    # предстказание цифры
-    res = model.predict([img])[0]
-    return np.argmax(res), max(res)
+    return shiftx,shifty
+  
+def shift(img,sx,sy):
+    rows,cols = img.shape
+    M = np.float32([[1,0,sx],[0,1,sy]])
+    shifted = cv2.warpAffine(img,M,(cols,rows))
+    return shifted
+  
+def rec_digit(img_path):
+  img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+  gray = 255-img
+  # применяем пороговую обработку
+  (thresh, gray) = cv2.threshold(gray, 128, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+  
+  # удаляем нулевые строки и столбцы
+  while np.sum(gray[0]) == 0:
+    gray = gray[1:]
+  while np.sum(gray[:,0]) == 0:
+    gray = np.delete(gray,0,1)
+  while np.sum(gray[-1]) == 0:
+    gray = gray[:-1]
+  while np.sum(gray[:,-1]) == 0:
+    gray = np.delete(gray,-1,1)
+  rows,cols = gray.shape
+  
+  # изменяем размер, чтобы помещалось в box 20x20 пикселей
+  if rows > cols:
+    factor = 20.0/rows
+    rows = 20
+    cols = int(round(cols*factor))
+    gray = cv2.resize(gray, (cols,rows))
+  else:
+    factor = 20.0/cols
+    cols = 20
+    rows = int(round(rows*factor))
+    gray = cv2.resize(gray, (cols, rows))
 
+  # расширяем до размера 28x28
+  colsPadding = (int(math.ceil((28-cols)/2.0)),int(math.floor((28-cols)/2.0)))
+  rowsPadding = (int(math.ceil((28-rows)/2.0)),int(math.floor((28-rows)/2.0)))
+  gray = np.lib.pad(gray,(rowsPadding,colsPadding),'constant')
 
-class App(tk.Tk):
-    def __init__(self):
-        tk.Tk.__init__(self)
+  # сдвигаем центр масс
+  shiftx,shifty = getBestShift(gray)
+  shifted = shift(gray,shiftx,shifty)
+  gray = shifted
+  
+  cv2.imwrite('gray'+ img_path, gray)
+  img = gray / 255.0
+  img = np.array(img).reshape(-1, 28, 28, 1)
+  pred = model.predict(img)
+  out = str(np.argmax(pred)) +' '+ str(np.max(pred))
+  return out
 
-        self.x = self.y = 0
-
-        # Создание элементов
-        self.canvas = tk.Canvas(
-            self, width=300, height=300, bg="white", cursor="cross")
-        self.label = tk.Label(self, text="Думаю..", font=("Helvetica", 48))
-        self.classify_btn = tk.Button(
-            self, text="Распознать", command=self.classify_handwriting)
-        self.button_clear = tk.Button(
-            self, text="Очистить", command=self.clear_all)
-
-        # Сетка окна
-        self.canvas.grid(row=0, column=0, pady=2, sticky=W, )
-        self.label.grid(row=0, column=1, pady=2, padx=2)
-        self.classify_btn.grid(row=1, column=1, pady=2, padx=2)
-        self.button_clear.grid(row=1, column=0, pady=2)
-
-        # self.canvas.bind("<Motion>", self.start_pos)
-        self.canvas.bind("<B1-Motion>", self.draw_lines)
-
-    def clear_all(self):
-        self.canvas.delete("all")
-
-    def classify_handwriting(self):
-        HWND = self.canvas.winfo_id()
-        rect = win32gui.GetWindowRect(HWND)  # получаем координату холста
-        im = ImageGrab.grab(rect)
-
-        digit, acc = predict_digit(im)
-        self.label.configure(text=str(digit)+', ' + str(int(acc*100))+'%')
-
-    def draw_lines(self, event):
-        self.x = event.x
-        self.y = event.y
-        r = 8
-        self.canvas.create_oval(
-            self.x-r, self.y-r, self.x + r, self.y + r, fill='black')
-
-
-app = App()
-mainloop()
+a = rec_digit('test.png')
+print(a)
