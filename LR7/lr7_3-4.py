@@ -70,29 +70,30 @@ def test_recognition(rec_type, val_type, dataset_name, show_img=False):
 
             groud_truth = clear_str(groud_truth)
             result = clear_str(result)
+        elif rec_type == "avg_of_aug":
+            result = pytesseract.image_to_string(img, lang="rus+eng")
+
+            img_name_wo_aug = img_file.name.split("_")[0]
+            if img_name_wo_aug in dict_for_avg_of_aug_dataset:
+                dict_for_avg_of_aug_dataset[img_name_wo_aug].append(result)
+            else:
+                dict_for_avg_of_aug_dataset[img_name_wo_aug] = [result]
 
         result = "".join(result.splitlines())
 
         output_str += f"{img_file.name} | {groud_truth} | {result}\n"
 
         if val_type == "binary_correct":
-            if result.lower() == groud_truth.lower():
+            if (
+                result.lower() in groud_truth.lower()
+                or groud_truth.lower() in result.lower()
+            ):
                 correct_guesses += 1
         elif val_type == "similarity":
             similarity = SequenceMatcher(
                 None, groud_truth.lower(), result.lower()
             ).ratio()
             similarities.append(similarity)
-        elif val_type == "avg_of_aug":
-            similarity = SequenceMatcher(
-                None, groud_truth.lower(), result.lower()
-            ).ratio()
-
-            img_name_wo_aug = img_file.name.split("_")[0]
-            if img_name_wo_aug in dict_for_avg_of_aug_dataset:
-                dict_for_avg_of_aug_dataset[img_name_wo_aug] += similarity
-            else:
-                dict_for_avg_of_aug_dataset[img_name_wo_aug] = similarity
 
         images_count += 1
 
@@ -103,24 +104,46 @@ def test_recognition(rec_type, val_type, dataset_name, show_img=False):
 
     output_str += "\n"
 
+    if rec_type == "avg_of_aug":
+        images_count = 0
+        similarities = []
+        correct_guesses = 0
+
+        for key in dict_for_avg_of_aug_dataset.keys():
+            results = dict_for_avg_of_aug_dataset[key]
+
+            if val_type == "binary_correct":
+                for result in results:
+                    if (
+                        result.lower() in groud_truth.lower()
+                        or groud_truth.lower() in result.lower()
+                    ):
+                        correct_guesses += 1
+                        break
+            elif val_type == "similarity":
+                max_similarity = 0
+                for result in results:
+                    similarity = SequenceMatcher(
+                        None, groud_truth.lower(), result.lower()
+                    ).ratio()
+                    max_similarity = max(similarity, max_similarity)
+                similarities.append(max_similarity)
+
+            images_count += 1
+
     if val_type == "binary_correct":
         output_str += f"Статистика: угадано {correct_guesses} / {images_count} капч"
     elif val_type == "similarity":
         output_str += (
             f"Статистика: средняя схожесть: {statistics.fmean(similarities) * 100}%"
         )
-    elif val_type == "avg_of_aug":
-        for key in dict_for_avg_of_aug_dataset.keys():
-            dict_for_avg_of_aug_dataset[key] /= 41.0
-            output_str += (
-                f"Статистика: средняя схожесть для "
-                + key
-                + f" : {dict_for_avg_of_aug_dataset[key] * 100}%"
-                + "\n"
-            )
 
     with open(
-        str(rel_path("results_" + val_type + "_" + rec_type + ".txt")),
+        str(
+            rel_path(
+                "results_" + val_type + "_" + rec_type + "_" + dataset_name + ".txt"
+            )
+        ),
         "w",
         encoding="utf-8",
     ) as f:
@@ -128,7 +151,16 @@ def test_recognition(rec_type, val_type, dataset_name, show_img=False):
 
 
 def main():
-    test_recognition("filtered_recognition", "avg_of_aug", "dataset2", show_img=False)
+    test_recognition("avg_of_aug", "binary_correct", "dataset2", show_img=False)
+    test_recognition("avg_of_aug", "similarity", "dataset2", show_img=False)
+    test_recognition(
+        "filtered_recognition", "binary_correct", "dataset2", show_img=False
+    )
+    test_recognition("filtered_recognition", "similarity", "dataset", show_img=False)
+    test_recognition("filtered_recognition", "similarity", "dataset2", show_img=False)
+    test_recognition(
+        "filtered_recognition", "binary_correct", "dataset", show_img=False
+    )
 
 
 if __name__ == "__main__":
