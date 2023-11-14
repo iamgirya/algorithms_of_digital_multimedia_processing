@@ -3,11 +3,12 @@ import pathlib
 import cv2
 import re
 import pytesseract
-from pytesseract import Output
+import tesstrain
 from difflib import SequenceMatcher
 import statistics
 
 pytesseract.pytesseract.tesseract_cmd = r"C:/Program Files/Tesseract-OCR/tesseract.exe"
+pytesseract.TrainModel()
 
 
 # Построить абсолютный путь до файла относительно местоположения скрипта
