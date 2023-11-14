@@ -1,6 +1,7 @@
 import csv
 import pathlib
 import cv2
+import re
 import pytesseract
 from pytesseract import Output
 from difflib import SequenceMatcher
@@ -15,12 +16,23 @@ def rel_path(rel_path):
     return path
 
 
+def clear_str(str):
+    str = str.lower()
+    str = re.sub(
+        r"[0123456789\!\#\$\%\^\&\*\(\)\_\~@\`\n\/\|\,\"\<\°\„\?\.\«\’\‚\”\“\®\¥\>\`\'\—\™\‘\:\ \]\[\{\}\=\+\-\\]",
+        " ",
+        str,
+    )
+    return str
+
+
 def test_recognition(rec_type, val_type, dataset_name, show_img=False):
     output_str = ""
     labels = {}
     images_count = 0
     correct_guesses = 0
     similarities = []
+    dict_for_avg_of_aug_dataset = {}
 
     with open(
         str(rel_path(dataset_name + "/labels.csv")), newline="", encoding="utf-8"
@@ -39,8 +51,7 @@ def test_recognition(rec_type, val_type, dataset_name, show_img=False):
 
         if rec_type == "straight_recognition":
             result = pytesseract.image_to_string(img, lang="rus+eng")
-
-        if rec_type == "boxes_recognition":
+        elif rec_type == "boxes_recognition":
             h, w = img.shape
             boxes = pytesseract.image_to_boxes(img, lang="rus+eng")
 
@@ -53,8 +64,12 @@ def test_recognition(rec_type, val_type, dataset_name, show_img=False):
                     (0, 255, 0),
                     2,
                 )
-
             result = "".join([sym_data.split(" ")[0] for sym_data in boxes.split("\n")])
+        elif rec_type == "filtered_recognition":
+            result = pytesseract.image_to_string(img, lang="rus+eng")
+
+            groud_truth = clear_str(groud_truth)
+            result = clear_str(result)
 
         result = "".join(result.splitlines())
 
@@ -63,12 +78,21 @@ def test_recognition(rec_type, val_type, dataset_name, show_img=False):
         if val_type == "binary_correct":
             if result.lower() == groud_truth.lower():
                 correct_guesses += 1
-
-        if val_type == "similarity":
+        elif val_type == "similarity":
             similarity = SequenceMatcher(
                 None, groud_truth.lower(), result.lower()
             ).ratio()
             similarities.append(similarity)
+        elif val_type == "avg_of_aug":
+            similarity = SequenceMatcher(
+                None, groud_truth.lower(), result.lower()
+            ).ratio()
+
+            img_name_wo_aug = img_file.name.split("_")[0]
+            if img_name_wo_aug in dict_for_avg_of_aug_dataset:
+                dict_for_avg_of_aug_dataset[img_name_wo_aug] += similarity
+            else:
+                dict_for_avg_of_aug_dataset[img_name_wo_aug] = similarity
 
         images_count += 1
 
@@ -81,11 +105,19 @@ def test_recognition(rec_type, val_type, dataset_name, show_img=False):
 
     if val_type == "binary_correct":
         output_str += f"Статистика: угадано {correct_guesses} / {images_count} капч"
-
-    if val_type == "similarity":
+    elif val_type == "similarity":
         output_str += (
             f"Статистика: средняя схожесть: {statistics.fmean(similarities) * 100}%"
         )
+    elif val_type == "avg_of_aug":
+        for key in dict_for_avg_of_aug_dataset.keys():
+            dict_for_avg_of_aug_dataset[key] /= 41.0
+            output_str += (
+                f"Статистика: средняя схожесть для "
+                + key
+                + f" : {dict_for_avg_of_aug_dataset[key] * 100}%"
+                + "\n"
+            )
 
     with open(
         str(rel_path("results_" + val_type + "_" + rec_type + ".txt")),
@@ -96,9 +128,7 @@ def test_recognition(rec_type, val_type, dataset_name, show_img=False):
 
 
 def main():
-    test_recognition(
-        "straight_recognition", "binary_correct", "dataset2", show_img=False
-    )
+    test_recognition("filtered_recognition", "avg_of_aug", "dataset2", show_img=False)
 
 
 if __name__ == "__main__":
