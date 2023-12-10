@@ -252,7 +252,7 @@ for k in kernel_sizes:
                     canny(k, s, b, o, i)
                     print(datetime.datetime.now())
 
-bounds = [2, 4, 7]
+bounds = [20, 40, 70]
 print("Start laplacian_of_gaussian")
 print(datetime.datetime.now())
 for k in kernel_sizes:
