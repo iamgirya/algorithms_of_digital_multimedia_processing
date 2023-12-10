@@ -3,3 +3,10 @@
 *.jpg
 *.zip
 *.gz
+*.nii
+*.nil
+IZ3/dataset/MosMedData-CT-HEMORRHAGE-type VIII/100_200_studies/100_200_studies/labels.csv
+IZ3/dataset/MosMedData-CT-HEMORRHAGE-type VIII/200_300_studies/200_300_studies/labels.csv
+IZ3/dataset/MosMedData-CT-HEMORRHAGE-type VIII/500_600_studies/500_600_studies/labels.csv
+IZ3/dataset/MosMedData-CT-HEMORRHAGE-type VIII/600_700_studies/600_700_studies/labels.csv
+IZ3/dataset/MosMedData-CT-HEMORRHAGE-type VIII/700_800_studies/700_800_studies/Labeling_1.xlsx

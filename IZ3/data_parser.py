@@ -3,11 +3,11 @@ import os
 import pathlib
 import shutil
 import dicom2nifti
-import xlrd
+import pandas as pd
 import csv
 
 
-def unpack_single_gzip_in_folder(folder_path):
+def unpack_single_gzip_in_folder(folder_path, dicom_file, is_good):
     files = os.listdir(folder_path)
 
     gz_files = [file for file in files if file.endswith(".gz")]
@@ -15,7 +15,8 @@ def unpack_single_gzip_in_folder(folder_path):
     if len(gz_files) == 1:
         gz_file_path = os.path.join(folder_path, gz_files[0])
 
-        output_file_path = os.path.splitext(gz_file_path)[0]
+        sub_folder = "good\\" if is_good == 1 else "bad\\"
+        output_file_path = "parsed_data\\" + sub_folder + dicom_file + ".nil"
 
         with gzip.open(gz_file_path, "rb") as f_in, open(
             output_file_path, "wb"
@@ -28,63 +29,68 @@ def unpack_single_gzip_in_folder(folder_path):
         print("Ошибка: Не удалось определить единственный файл .gz в указанной папке.")
 
 
-# Folder "CT-0" consist of CT scans having normal lung tissue,
-# no CT-signs of viral pneumonia.
-pack_name = "100_200_studies"
-path = (
-    r"dataset\MosMedData-CT-HEMORRHAGE-type VIII\\"
-    + pack_name
-    + "\\"
-    + pack_name
-    + "\\"
-)
-files = os.listdir(path)
-xlsx_files = [file for file in files if file.endswith(".xlxs")]
-if len(xlsx_files) == 1:
-    xlxs_file = xlsx_files[0]
+def parse_some_pack(pack_name):
+    path = (
+        r"dataset\MosMedData-CT-HEMORRHAGE-type VIII\\"
+        + pack_name
+        + "\\"
+        + pack_name
+        + "\\"
+    )
+    files = os.listdir(path)
+    xlsx_files = [file for file in files if file.endswith(".xlsx")]
+    if len(xlsx_files) >= 1:
+        xlxs_file = xlsx_files[0]
 
-    def csv_from_excel():
-        wb = xlrd.open_workbook(path + xlxs_file)
-        sh = wb.sheet_by_name("Clinical params")
-        your_csv_file = open("labels.csv", "w")
-        wr = csv.writer(your_csv_file, quoting=csv.QUOTE_ALL)
-        for rownum in range(sh.nrows):
-            wr.writerow(sh.row_values(rownum))
-        your_csv_file.close()
+        read_file = pd.read_excel(path + xlxs_file)
+        read_file.to_csv(path + "labels.csv", index=None, header=False, sep="!")
 
-    csv_from_excel()
+        labels = {}
 
-    labels = {}
+        with open(path + "labels.csv", newline="", encoding="utf-8") as csvfile:
+            reader = csv.reader(csvfile, delimiter="!", quotechar="'")
+            for row in reader:
+                if row[0][0] == "s":
+                    continue
+                labels[row[0]] = row[2] == "normal"
 
-    with open(
-        str(rel_path(path + "labels.csv")), newline="", encoding="utf-8"
-    ) as csvfile:
-        reader = csv.reader(csvfile, delimiter=",", quotechar="'")
-        for row in reader:
-            if row[0][0] == "s":
-                continue
-            labels[row[0]] = row[2] == "normal"
-
-# runs the csv_from_excel function:
-csv_from_excel()
-
-for x in os.listdir(r"C:\Users\RedMa\OneDrive\Рабочий стол\data\bad\700_800_studies"):
-    dicom2nifti.convert_directory(
-        os.path.join(
-            r"C:\Users\RedMa\OneDrive\Рабочий стол\data\bad\700_800_studies",
-            x,
-            os.listdir(
+        for dicom_file in labels.keys():
+            dicom2nifti.convert_directory(
                 os.path.join(
-                    r"C:\Users\RedMa\OneDrive\Рабочий стол\data\bad\700_800_studies", x
-                )
-            )[0],
-        ),
-        os.path.join(
-            r"C:\Users\RedMa\OneDrive\Рабочий стол\data\bad\700_800_studies", x
-        ),
-    )
-    unpack_single_gzip_in_folder(
-        os.path.join(
-            r"C:\Users\RedMa\OneDrive\Рабочий стол\data\bad\700_800_studies", x
-        )
-    )
+                    path,
+                    dicom_file,
+                    os.listdir(
+                        os.path.join(
+                            path,
+                            dicom_file,
+                        )
+                    )[0],
+                ),
+                os.path.join(
+                    path,
+                    dicom_file,
+                ),
+            )
+            unpack_single_gzip_in_folder(
+                os.path.join(
+                    path,
+                    dicom_file,
+                ),
+                dicom_file,
+                labels[dicom_file],
+            )
+
+
+packs_name = [
+    # "0_100_studies",  # смешанные
+    # "100_200_studies", # здоровые # загружен
+    "200_300_studies",  # здоровые
+    # "300_400_studies",  # здоровые
+    # "400_500_studies",  # здоровые
+    # "500_600_studies",  # больные # загружен
+    "600_700_studies",  # больные
+    # "700_800_studies",  # больные
+]
+
+for pack in packs_name:
+    parse_some_pack(pack)
