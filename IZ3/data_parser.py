@@ -16,7 +16,7 @@ def unpack_single_gzip_in_folder(folder_path, dicom_file, is_good):
         gz_file_path = os.path.join(folder_path, gz_files[0])
 
         sub_folder = "good\\" if is_good == 1 else "bad\\"
-        output_file_path = "parsed_data\\" + sub_folder + dicom_file + ".nil"
+        output_file_path = "parsed_data\\" + sub_folder + dicom_file + ".nii"
 
         with gzip.open(gz_file_path, "rb") as f_in, open(
             output_file_path, "wb"
